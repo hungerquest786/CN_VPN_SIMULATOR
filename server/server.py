@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from common.handshake import HandshakeError, recv_msg, send_msg, server_reply
 from common.dropstats import DropStats
+from common.packetlog import PacketLog
 from common.login import DEAD_AFTER, Sessions, server_login
 from common.rekey import RekeyError, server_rekey
 from common.packet import decode, TYPE_DATA, TYPE_KEEPALIVE
@@ -41,6 +42,8 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 parser = argparse.ArgumentParser(description="Mini VPN server")
 parser.add_argument("--stats-file", default=os.path.join(ROOT, "stats.json"),
                     help="where to write the live numbers for the dashboard (about once a second)")
+parser.add_argument("--packets-file", default=os.path.join(ROOT, "packets.json"),
+                    help="where to write the last 20 packets for the Packet Inspector tab (about once a second)")
 args = parser.parse_args()
 
 with open("certs/server.cert", "rb") as f:
@@ -51,6 +54,7 @@ with open("certs/server.key", "rb") as f:
 sessions = Sessions()
 stats = DropStats()   # counts tunnel packets we refuse (not IPv4, wrong source)
 live = ServerStats()  # numbers for the dashboard (stats.json)
+plog = PacketLog(BIND)  # last 20 packets, metadata only (packets.json)
 
 NAT_TABLE = "minivpn_nat"   # our own nft table, so removing it cannot touch anything else
 
@@ -127,6 +131,7 @@ listener.listen(16)
 print(f"server up: UDP {BIND}, TCP {TCP_BIND}")
 
 stats_warned = False
+packets_warned = False
 # Only this main loop touches the sockets and each session's seq counter.
 try:
     while True:
@@ -139,6 +144,12 @@ try:
             if not stats_warned:
                 print(f"cannot write {args.stats_file}: {e} (the VPN keeps working)")
                 stats_warned = True
+        try:
+            plog.maybe_write(args.packets_file)                  # same rule for the Packet Inspector
+        except OSError as e:
+            if not packets_warned:
+                print(f"cannot write {args.packets_file}: {e} (the VPN keeps working)")
+                packets_warned = True
         line = stats.summary()            # at most one line every 10 s
         if line:
             print(line)
@@ -157,15 +168,18 @@ try:
                     line = stats.add("wrong epoch", f"session {s.session_id}, epoch {data[1]}, current {s.keys.cur.epoch}")
                     if line:
                         print(line)
+                    plog.received(addr, data, "wrong epoch")
                     continue
                 ptype, _, sid, seq, plain = decode(ek.recv_key, data)
             except ValueError as e:
                 print("dropped:", e)          # bad packets are just ignored
+                plog.received(addr, data, "bad tag" if str(e).startswith("bad tag") else str(e))
                 continue
             if not ek.window.accept(seq):     # this epoch's window; only checked after decrypt worked
                 s.keys.replays += 1
                 live.replay_dropped(s.user, seq)
                 print(f"replay dropped: session {sid} epoch {ek.epoch} seq {seq} (total dropped {s.keys.replays})")
+                plog.received(addr, data, "replay", plain)
                 continue
             s.addr = addr                     # the packet was real, so remember where it came from
             s.bytes_in += len(data)
@@ -176,6 +190,8 @@ try:
                 sock.sendto(out, addr)
                 s.bytes_out += len(out)
                 live.add_bytes(len(out))
+                plog.received(addr, data)
+                plog.sent(addr, out)
             elif ptype == TYPE_DATA:
                 # Source check: bytes 12..15 of an IPv4 packet are the source address.
                 # It must be the address we gave this client. Anything that is not IPv4
@@ -195,8 +211,12 @@ try:
                     line = stats.add(reason, detail)
                     if line:
                         print(line)
+                    plog.received(addr, data, "wrong inner source" if reason == "wrong source" else reason, plain)
                 else:
                     os.write(tun_fd, plain)   # hand the IP packet to the kernel
+                    plog.received(addr, data, None, plain)
+            else:
+                plog.received(addr, data, "unsupported type")   # nothing is done with it (as before)
         if tun_fd in ready:
             plain = os.read(tun_fd, 2000)
             # Bytes 16..19 of an IPv4 packet are the destination address.
@@ -206,5 +226,6 @@ try:
                 sock.sendto(out, s.addr)
                 s.bytes_out += len(out)
                 live.add_bytes(len(out))
+                plog.sent(s.addr, out, plain)
 except KeyboardInterrupt:
     print("\nserver stopped")                # exiting normally runs the NAT cleanup

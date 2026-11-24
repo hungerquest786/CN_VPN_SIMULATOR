@@ -9,3 +9,4 @@ stats.json
 
 # switch.py state, logs, generated keys and certs (Section 10)
 lab/.switch/
+packets.json
