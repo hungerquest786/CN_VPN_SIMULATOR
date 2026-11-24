@@ -1,4 +1,4 @@
-"""VPN client (Section 6): runs inside a client namespace.
+"""VPN client (Section 7): runs inside a client namespace.
 Usage: client.py USERNAME [-p PASSWORD] [--ca FILE] [--split | --full]
 (asks for the password if -p is missing)
   no flag : only the tunnel network 10.8.0.0/24 goes through tun0
@@ -6,6 +6,8 @@ Usage: client.py USERNAME [-p PASSWORD] [--ca FILE] [--split | --full]
   --full  : everything goes through tun0
 Section 6: sends a keepalive after 25 s of silence; exits if the server is silent for 60 s;
 drops replayed packets from the server.
+Section 7: every --rekey-interval seconds (default 120) it rekeys over the TCP connection,
+which stays open after login. The old keys still work for a few seconds.
 First handshake + login (TCP 51821), then data over UDP 51820.
 Packets from tun0 -> encrypt -> UDP to server.  UDP from server -> decrypt -> tun0.
 """
@@ -24,8 +26,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from common.handshake import HandshakeError, client_finish, client_hello, recv_msg, send_msg
 from common.login import DEAD_AFTER, KEEPALIVE_AFTER, LoginError, client_login
-from common.packet import encode, decode, TYPE_DATA, TYPE_KEEPALIVE
-from common.replay import ReplayWindow
+from common.rekey import REKEY_EVERY, KeyRing, RekeyError, client_rekey
+from common.packet import decode, TYPE_DATA, TYPE_KEEPALIVE
 from common.tun import open_tun
 
 SERVER = ("10.0.3.2", 51820)         # UDP data
@@ -39,6 +41,7 @@ ap.add_argument("--ca", default="certs/ca.pub")      # the CA we trust
 mode = ap.add_mutually_exclusive_group()
 mode.add_argument("--split", action="store_true")
 mode.add_argument("--full", action="store_true")
+ap.add_argument("--rekey-interval", type=float, default=REKEY_EVERY, help="seconds between rekeys")
 ap.add_argument("--replay-test", action="store_true", help=argparse.SUPPRESS)  # hidden demo flag
 args = ap.parse_args()
 password = args.password if args.password is not None else getpass.getpass("Password: ")
@@ -48,13 +51,13 @@ with open(args.ca, "rb") as f:
 
 # Handshake, then login. If anything is wrong we stop here and never open the tunnel.
 try:
-    with socket.create_connection(SERVER_TCP, timeout=10) as conn:
-        priv, hello = client_hello()
-        send_msg(conn, hello)
-        reply = recv_msg(conn)
-        c2s_key, s2c_key, session_id = client_finish(priv, hello, reply, ca_public, SERVER_NAME)
-        print("handshake OK: server certificate and signature are valid")
-        my_ip = client_login(conn, c2s_key, s2c_key, session_id, args.username, password)
+    conn = socket.create_connection(SERVER_TCP, timeout=10)   # stays open: rekeys use it later
+    priv, hello = client_hello()
+    send_msg(conn, hello)
+    reply = recv_msg(conn)
+    c2s_key, s2c_key, session_id = client_finish(priv, hello, reply, ca_public, SERVER_NAME)
+    print("handshake OK: server certificate and signature are valid")
+    my_ip = client_login(conn, c2s_key, s2c_key, session_id, args.username, password)
 except (HandshakeError, LoginError, OSError) as e:
     sys.exit(f"FAILED, refusing to continue: {e}")
 print(f"login OK, server gave us {my_ip}")
@@ -95,7 +98,7 @@ print("routes added:", [" ".join(r) for r in added_routes] or "none (only 10.8.0
 
 print(f"client up, sending to {SERVER}, session_id={session_id}")
 
-seq = 0   # counts packets we send; never reused
+ring = KeyRing(send_key=c2s_key, recv_key=s2c_key)   # epoch 0 = handshake keys; each epoch has its own counter
 
 
 def remove_routes():
@@ -109,8 +112,7 @@ def remove_routes():
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 atexit.register(remove_routes)
 
-window = ReplayWindow()               # replay protection for packets from the server
-last_sent = last_heard = time.monotonic()
+last_sent = last_heard = last_rekey = time.monotonic()
 replay_pending = args.replay_test    # --replay-test: send the first data packet twice
 
 try:
@@ -119,32 +121,43 @@ try:
         now = time.monotonic()
         if tun_fd in ready:
             plain = os.read(tun_fd, 2000)
-            packet = encode(c2s_key, TYPE_DATA, 0, session_id, seq, plain)
+            packet = ring.seal(TYPE_DATA, session_id, plain)
             sock.sendto(packet, SERVER)
             if replay_pending:            # the exact same bytes again: the server must drop this copy
                 sock.sendto(packet, SERVER)
                 replay_pending = False
                 print("replay test: sent one packet twice")
-            seq += 1
             last_sent = now
         if sock in ready:
             data, _ = sock.recvfrom(2000)
             try:
-                ptype, _, sid, rseq, plain = decode(s2c_key, data)
+                ek = ring.recv_keys(data[1]) if len(data) > 1 else None   # header byte 1 = key_epoch
+                if ek is None:
+                    raise ValueError(f"epoch {data[1:2].hex()} is not current or overlap (total {ring.bad_epoch})")
+                ptype, _, sid, rseq, plain = decode(ek.recv_key, data)
             except ValueError as e:
                 print("dropped:", e)
             else:
                 if sid == session_id:
-                    if not window.accept(rseq):
-                        print(f"replay dropped: seq {rseq} (total dropped {window.dropped})")
+                    if not ek.window.accept(rseq):
+                        ring.replays += 1
+                        print(f"replay dropped: epoch {ek.epoch} seq {rseq} (total dropped {ring.replays})")
                     else:
                         last_heard = now
                         if ptype == TYPE_DATA:
                             os.write(tun_fd, plain)   # keepalive answers just prove the server is alive
         if now - last_sent > KEEPALIVE_AFTER:         # quiet for a while: tell the server we are alive
-            sock.sendto(encode(c2s_key, TYPE_KEEPALIVE, 0, session_id, seq, b""), SERVER)
-            seq += 1
+            sock.sendto(ring.seal(TYPE_KEEPALIVE, session_id, b""), SERVER)
             last_sent = now
+        if now - last_rekey >= args.rekey_interval:
+            # We wait here for the server's answer (a few milliseconds). UDP packets that arrive
+            # meanwhile just wait in the socket, and are read after we switched keys.
+            try:
+                print(f"rekeyed, now epoch {client_rekey(conn, ring, session_id)}")
+            except RekeyError as e:
+                print(e)
+                sys.exit(1)               # keys out of step: leaving is safer than limping on
+            last_rekey = time.monotonic()
         if now - last_heard > DEAD_AFTER:
             print(f"no answer from the server for {DEAD_AFTER}s, exiting")
             sys.exit(0)                               # exiting normally runs remove_routes

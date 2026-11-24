@@ -1,4 +1,4 @@
-"""VPN server (Section 6): runs inside the serverA namespace.
+"""VPN server (Section 7): runs inside the serverA namespace.
 Each client: handshake + login over TCP 51821, then data over UDP 51820.
 Many clients at once. Each has its own session (session_id, keys, tunnel IP, UDP address).
 Packets from tun0 -> find the client by destination IP -> encrypt -> UDP.
@@ -7,6 +7,8 @@ Section 5: at start we turn on IP forwarding and NAT, so traffic from the tunnel
 leaves serverA with serverA's own address (10.0.3.2). At exit we remove the NAT rule.
 Section 6: answers keepalives, removes clients silent for 60 s (frees their address),
 drops replayed packets (sliding window) and packets with a wrong inner source IP.
+Section 7: the client rekeys over its TCP connection (kept open after login). Each epoch has its
+own keys, counter and replay window; the previous epoch still works for a few seconds.
 """
 import atexit
 import os
@@ -24,7 +26,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from common.handshake import HandshakeError, recv_msg, send_msg, server_reply
 from common.dropstats import DropStats
 from common.login import DEAD_AFTER, Sessions, server_login
-from common.packet import encode, decode, TYPE_DATA, TYPE_KEEPALIVE
+from common.rekey import RekeyError, server_rekey
+from common.packet import decode, TYPE_DATA, TYPE_KEEPALIVE
 from common.tun import open_tun
 from common.users import load_users
 
@@ -78,12 +81,25 @@ def handle_client(conn, peer):
             send_msg(conn, reply)
             # Read users.json at every login, so new users work without a restart.
             s = server_login(conn, c2s, s2c, sid, load_users(USERS_FILE), sessions)
-            if s:
-                print(f"{peer[0]}: user {s.user!r} logged in, got {s.ip}, session_id={sid}")
-            else:
+            if not s:
                 print(f"{peer[0]}: login refused")
-    except (HandshakeError, OSError) as e:
-        print(f"{peer[0]}: handshake failed: {e}")
+                return
+            print(f"{peer[0]}: user {s.user!r} logged in, got {s.ip}, session_id={sid}")
+            # Keep the connection: the client sends a rekey request on it every so often.
+            # We look up every second whether the session still exists (it may have timed out).
+            while sessions.by_id.get(sid) is s:
+                if select.select([conn], [], [], 1.0)[0]:
+                    try:
+                        msg = recv_msg(conn)
+                    except HandshakeError:
+                        return                 # the client closed the connection: normal end
+                    reply, epoch = server_rekey(msg, s.keys, sid)
+                    send_msg(conn, reply)      # keys already switched; the reply used the old ones
+                    print(f"session {sid} ({s.user}): rekeyed, now epoch {epoch}")
+    except (HandshakeError, RekeyError) as e:
+        print(f"{peer[0]}: handshake/rekey failed: {e}")
+    except OSError:
+        pass                                   # client closed the connection: nothing to do
 
 
 subprocess.run(["nft", "delete", "table", "ip", NAT_TABLE], capture_output=True)  # leftover from a crash
@@ -116,18 +132,24 @@ try:
                 s = sessions.by_id.get(struct.unpack(">I", data[2:6])[0]) if len(data) >= 14 else None
                 if s is None:
                     raise ValueError("unknown session")
-                ptype, _, sid, seq, plain = decode(s.c2s, data)
+                ek = s.keys.recv_keys(data[1])   # header byte 1 = key_epoch
+                if ek is None:                   # not the current epoch, and not the overlap one
+                    line = stats.add("wrong epoch", f"session {s.session_id}, epoch {data[1]}, current {s.keys.cur.epoch}")
+                    if line:
+                        print(line)
+                    continue
+                ptype, _, sid, seq, plain = decode(ek.recv_key, data)
             except ValueError as e:
                 print("dropped:", e)          # bad packets are just ignored
                 continue
-            if not s.window.accept(seq):      # only checked after decrypt worked
-                print(f"replay dropped: session {sid} seq {seq} (total dropped {s.window.dropped})")
+            if not ek.window.accept(seq):     # this epoch's window; only checked after decrypt worked
+                s.keys.replays += 1
+                print(f"replay dropped: session {sid} epoch {ek.epoch} seq {seq} (total dropped {s.keys.replays})")
                 continue
             s.addr = addr                     # the packet was real, so remember where it came from
             s.last_heard = time.monotonic()
             if ptype == TYPE_KEEPALIVE:       # answer with our own keepalive
-                sock.sendto(encode(s.s2c, TYPE_KEEPALIVE, 0, sid, s.seq, b""), addr)
-                s.seq += 1
+                sock.sendto(s.keys.seal(TYPE_KEEPALIVE, sid, b""), addr)
             elif ptype == TYPE_DATA:
                 # Source check: bytes 12..15 of an IPv4 packet are the source address.
                 # It must be the address we gave this client. Anything that is not IPv4
@@ -152,7 +174,6 @@ try:
             # Bytes 16..19 of an IPv4 packet are the destination address.
             s = sessions.by_ip.get(socket.inet_ntoa(plain[16:20])) if len(plain) >= 20 else None
             if s and s.addr:                  # drop it if we know no such client (or it never spoke)
-                sock.sendto(encode(s.s2c, TYPE_DATA, 0, s.session_id, s.seq, plain), s.addr)
-                s.seq += 1
+                sock.sendto(s.keys.seal(TYPE_DATA, s.session_id, plain), s.addr)
 except KeyboardInterrupt:
     print("\nserver stopped")                # exiting normally runs the NAT cleanup

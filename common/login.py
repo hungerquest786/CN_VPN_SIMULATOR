@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 
 from common.handshake import recv_msg, send_msg
 from common.packet import TYPE_LOGIN, decode, encode
-from common.replay import ReplayWindow
+from common.rekey import KeyRing
 from common.users import check_password
 
 LOGIN_SEQ = 1 << 63
@@ -36,9 +36,11 @@ class Session:
     s2c: bytes
     ip: str                # tunnel address, like 10.8.0.2
     addr: tuple = None     # UDP address the client sends from (learned from its first packet)
-    seq: int = 0           # counts packets we send to this client
     last_heard: float = field(default_factory=time.monotonic)   # when we last got a good packet
-    window: ReplayWindow = field(default_factory=ReplayWindow)  # replay protection for its packets
+    keys: KeyRing = None   # per-epoch keys, sequence counters and replay windows (Section 7)
+
+    def __post_init__(self):
+        self.keys = KeyRing(send_key=self.s2c, recv_key=self.c2s)    # epoch 0 = the handshake keys
 
 
 class Sessions:
