@@ -1,6 +1,9 @@
-"""VPN client (Section 7): runs inside a client namespace.
+"""VPN client (Section 8): runs inside a client namespace.
 Usage: client.py USERNAME [-p PASSWORD] [--ca FILE] [--split | --full]
 (asks for the password if -p is missing)
+  --killswitch : (use with --full) block all outgoing traffic except the tunnel. The block STAYS if the
+                 tunnel dies or the client crashes; only Ctrl+C removes it.
+  --release    : only remove a leftover kill-switch block, then exit (no username needed)
   no flag : only the tunnel network 10.8.0.0/24 goes through tun0
   --split : also 10.0.3.0/24 (the servers' network) goes through tun0
   --full  : everything goes through tun0
@@ -25,6 +28,7 @@ import time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from common.handshake import HandshakeError, client_finish, client_hello, recv_msg, send_msg
+from common import killswitch
 from common.login import DEAD_AFTER, KEEPALIVE_AFTER, LoginError, client_login
 from common.rekey import REKEY_EVERY, KeyRing, RekeyError, client_rekey
 from common.packet import decode, TYPE_DATA, TYPE_KEEPALIVE
@@ -35,7 +39,7 @@ SERVER_TCP = ("10.0.3.2", 51821)     # TCP handshake
 SERVER_NAME = "vpn-server"           # the name the certificate must contain
 
 ap = argparse.ArgumentParser()
-ap.add_argument("username")
+ap.add_argument("username", nargs="?")
 ap.add_argument("-p", "--password")
 ap.add_argument("--ca", default="certs/ca.pub")      # the CA we trust
 mode = ap.add_mutually_exclusive_group()
@@ -43,11 +47,32 @@ mode.add_argument("--split", action="store_true")
 mode.add_argument("--full", action="store_true")
 ap.add_argument("--rekey-interval", type=float, default=REKEY_EVERY, help="seconds between rekeys")
 ap.add_argument("--replay-test", action="store_true", help=argparse.SUPPRESS)  # hidden demo flag
+ap.add_argument("--killswitch", action="store_true")
+ap.add_argument("--release", action="store_true")
 args = ap.parse_args()
+
+if args.release:                      # just clean up and leave
+    print("kill switch removed" if killswitch.release() else "no kill switch was active")
+    sys.exit(0)
+if not args.username:
+    ap.error("username is required")
+if args.killswitch and not args.full:
+    print("warning: --killswitch is meant to be used with --full (otherwise normal traffic is blocked)")
 password = args.password if args.password is not None else getpass.getpass("Password: ")
 
 with open(args.ca, "rb") as f:
     ca_public = Ed25519PublicKey.from_public_bytes(f.read())
+
+if args.killswitch:
+    # Before anything is sent. From now on nothing leaves except the tunnel and the VPN server.
+    killswitch.install(server_ip=SERVER[0])
+    print("kill switch ON")
+
+
+def release_killswitch():             # only called for a deliberate Ctrl+C
+    killswitch.release()
+    print("kill switch removed")
+
 
 # Handshake, then login. If anything is wrong we stop here and never open the tunnel.
 try:
@@ -58,8 +83,14 @@ try:
     c2s_key, s2c_key, session_id = client_finish(priv, hello, reply, ca_public, SERVER_NAME)
     print("handshake OK: server certificate and signature are valid")
     my_ip = client_login(conn, c2s_key, s2c_key, session_id, args.username, password)
+except KeyboardInterrupt:
+    print("\nclient stopped")
+    if args.killswitch:
+        release_killswitch()
+    sys.exit(0)
 except (HandshakeError, LoginError, OSError) as e:
-    sys.exit(f"FAILED, refusing to continue: {e}")
+    # The kill switch (if on) stays: no tunnel means no traffic. `--release` removes it.
+    sys.exit(f"FAILED, refusing to continue: {e}" + (" (kill switch still on; run --release)" if args.killswitch else ""))
 print(f"login OK, server gave us {my_ip}")
 
 tun_fd, _ = open_tun("tun0", f"{my_ip}/24", disable_ipv6=True)
@@ -163,3 +194,5 @@ try:
             sys.exit(0)                               # exiting normally runs remove_routes
 except KeyboardInterrupt:
     print("\nclient stopped")
+    if args.killswitch:               # a deliberate stop: the user wants normal networking back
+        release_killswitch()
