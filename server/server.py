@@ -1,77 +1,86 @@
-"""VPN server (Section 3): runs inside the serverA namespace.
-A client first does the handshake over TCP 51821, then data flows over UDP 51820.
-Packets from tun0 -> encrypt -> UDP to client.  UDP from client -> decrypt -> tun0.
+"""VPN server (Section 4): runs inside the serverA namespace.
+Each client: handshake + login over TCP 51821, then data over UDP 51820.
+Many clients at once. Each has its own session (session_id, keys, tunnel IP, UDP address).
+Packets from tun0 -> find the client by destination IP -> encrypt -> UDP.
+UDP from a client -> find the session by session_id -> decrypt -> tun0.
 """
 import os
 import select
 import socket
+import struct
 import sys
+import threading
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from common.handshake import HandshakeError, recv_msg, send_msg, server_reply
+from common.login import Sessions, server_login
 from common.packet import encode, decode, TYPE_DATA
 from common.tun import open_tun
+from common.users import load_users
 
 BIND = ("10.0.3.2", 51820)        # UDP data
-TCP_BIND = ("10.0.3.2", 51821)    # TCP handshake
+TCP_BIND = ("10.0.3.2", 51821)    # TCP handshake + login
+USERS_FILE = "users.json"
 
 with open("certs/server.cert", "rb") as f:
     cert = f.read()
 with open("certs/server.key", "rb") as f:
     signing_key = Ed25519PrivateKey.from_private_bytes(f.read())
 
-
-def do_handshake(conn):
-    """Read ClientHello, send ServerHello. Returns (c2s_key, s2c_key, session_id)."""
-    conn.settimeout(5)                    # do not wait forever for a slow client
-    hello = recv_msg(conn)
-    reply, c2s, s2c, sid = server_reply(hello, cert, signing_key)
-    send_msg(conn, reply)
-    return c2s, s2c, sid
+sessions = Sessions()
 
 
-c2s_key = s2c_key = session_id = None     # no session until a client does a handshake
+def handle_client(conn, peer):
+    """Runs in its own thread, so a slow or wrong-password client does not block the others."""
+    try:
+        with conn:
+            conn.settimeout(10)                   # do not wait forever for a slow client
+            hello = recv_msg(conn)
+            reply, c2s, s2c, sid = server_reply(hello, cert, signing_key)
+            send_msg(conn, reply)
+            # Read users.json at every login, so new users work without a restart.
+            s = server_login(conn, c2s, s2c, sid, load_users(USERS_FILE), sessions)
+            if s:
+                print(f"{peer[0]}: user {s.user!r} logged in, got {s.ip}, session_id={sid}")
+            else:
+                print(f"{peer[0]}: login refused")
+    except (HandshakeError, OSError) as e:
+        print(f"{peer[0]}: handshake failed: {e}")
+
+
 tun_fd, _ = open_tun("tun0", "10.8.0.1/24")
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(BIND)
 listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 listener.bind(TCP_BIND)
-listener.listen(1)
+listener.listen(16)
 print(f"server up: UDP {BIND}, TCP {TCP_BIND}")
 
-client_addr = None   # learned from the first valid packet we receive
-seq = 0              # counts packets we send; never reused
-
+# Only this main loop touches the sockets and each session's seq counter.
 while True:
     ready, _, _ = select.select([tun_fd, sock, listener], [], [])
     if listener in ready:
-        # A new client: one TCP connection = one session. A new handshake replaces
-        # the old session (we only support one client for now).
         conn, peer = listener.accept()
-        try:
-            c2s_key, s2c_key, session_id = do_handshake(conn)
-            client_addr, seq = None, 0
-            print(f"handshake OK with {peer[0]}, session_id={session_id}")
-        except (HandshakeError, OSError) as e:
-            print(f"handshake failed with {peer[0]}: {e}")
-        finally:
-            conn.close()
+        threading.Thread(target=handle_client, args=(conn, peer), daemon=True).start()
     if sock in ready:
         data, addr = sock.recvfrom(2000)
         try:
-            if session_id is None:
-                raise ValueError("no session yet")
-            _, _, sid, _, plain = decode(c2s_key, data)
+            # session_id sits in header bytes 2..5; it tells us whose key to use.
+            s = sessions.by_id.get(struct.unpack(">I", data[2:6])[0]) if len(data) >= 14 else None
+            if s is None:
+                raise ValueError("unknown session")
+            _, _, sid, _, plain = decode(s.c2s, data)
         except ValueError as e:
             print("dropped:", e)          # bad packets are just ignored
         else:
-            if sid == session_id:
-                client_addr = addr
-                os.write(tun_fd, plain)   # hand the IP packet to the kernel
+            s.addr = addr                 # the packet was real, so remember where it came from
+            os.write(tun_fd, plain)       # hand the IP packet to the kernel
     if tun_fd in ready:
         plain = os.read(tun_fd, 2000)
-        if client_addr and session_id is not None:   # nobody to send to until client speaks
-            sock.sendto(encode(s2c_key, TYPE_DATA, 0, session_id, seq, plain), client_addr)
-            seq += 1
+        # Bytes 16..19 of an IPv4 packet are the destination address.
+        s = sessions.by_ip.get(socket.inet_ntoa(plain[16:20])) if len(plain) >= 20 else None
+        if s and s.addr:                  # drop it if we know no such client (or it never spoke)
+            sock.sendto(encode(s.s2c, TYPE_DATA, 0, s.session_id, s.seq, plain), s.addr)
+            s.seq += 1

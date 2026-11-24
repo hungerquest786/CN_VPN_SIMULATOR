@@ -13,6 +13,7 @@ HEADER_FMT = ">BBIQ"                      # 1 + 1 + 4 + 8 bytes
 HEADER_LEN = struct.calcsize(HEADER_FMT)  # = 14
 TAG_LEN = 16
 TYPE_DATA = 1                             # type 1 = normal data packet
+TYPE_LOGIN = 2                            # type 2 = login message (only on the TCP connection)
 
 
 def make_nonce(session_id, seq):
