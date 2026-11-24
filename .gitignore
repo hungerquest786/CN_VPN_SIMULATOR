@@ -1,0 +1,11 @@
+# CA and server private keys (Section 3)
+certs/*.key
+__pycache__/
+.pytest_cache/
+evil/
+users.json
+stats.json
+.stats-*.tmp
+
+# switch.py state, logs, generated keys and certs (Section 10)
+lab/.switch/
