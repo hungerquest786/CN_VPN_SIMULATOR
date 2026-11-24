@@ -1,0 +1,23 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py wireguard
+Stopping mode 'minivpn':
+  - undo: stop client (pid 61572) -> stopped
+  - undo: stop server (pid 61567) -> stopped
+  - undo: serverA ip_forward back to 0
+
+Switching to 'wireguard':
+  WireGuard: default crypto, UDP port 51822, new keys made now (kept in /etc/wireguard/minivpn-lab).
+  - generate client key pair
+  - generate server key pair
+  - write client config /etc/wireguard/minivpn-lab/wg-client.conf
+  - write server config /etc/wireguard/minivpn-lab/wg-server.conf
+  - client1: create wg0
+  - client1: load client config into wg0
+  - client1: address 10.9.0.2/24
+  - client1: MTU 1400, bring up
+  - serverA: create wg0
+  - serverA: load server config into wg0
+  - serverA: address 10.9.0.1/24
+  - serverA: MTU 1400, bring up
+Mode 'wireguard' is up. Test target: 10.9.0.1
+
+(exit code 0)

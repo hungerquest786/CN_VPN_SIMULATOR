@@ -1,0 +1,8 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py status
+active mode: wireguard
+target IP:   10.9.0.1
+tunnel net:  10.9.0.0/24
+tunnel up:   yes
+ping client1 -> 10.9.0.1: reply
+
+(exit code 0)

@@ -1,0 +1,7 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py status
+active mode: plain
+target IP:   10.0.3.2
+tunnel up:   n/a (no tunnel)
+ping client1 -> 10.0.3.2: reply
+
+(exit code 0)

@@ -1,0 +1,27 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py openvpn
+Stopping mode 'wireguard':
+  - undo: serverA: create wg0
+  - undo: client1: create wg0
+  - undo: write server config /etc/wireguard/minivpn-lab/wg-server.conf
+  - undo: write client config /etc/wireguard/minivpn-lab/wg-client.conf
+  - undo: create folder /etc/wireguard/minivpn-lab
+
+Switching to 'openvpn':
+  OpenVPN: our own CA and certificates (new at every switch), AES-256-GCM, UDP 1194,
+  userspace (DCO off), tunnel MTU 1400, TCP size clamping (mssfix) off. Files: lab/.switch/openvpn-pki
+  - make the CA (ECDSA P-256, valid 30 days)
+  - write server certificate rules
+  - make the server key and certificate request
+  - sign the server certificate with our CA
+  - write client certificate rules
+  - make the client key and certificate request
+  - sign the client certificate with our CA
+  - write server config /home/mancity_hunger/projects/cn-mini-vpn/lab/.switch/openvpn-pki/server.conf
+  - write client config /home/mancity_hunger/projects/cn-mini-vpn/lab/.switch/openvpn-pki/client.conf
+  - start server in serverA (log: lab/.switch/logs/openvpn-server.log)
+  - wait for the server to be ready
+  - start client in client1 (log: lab/.switch/logs/openvpn-client.log)
+  - wait for the client to connect (TLS handshake, then its tunnel appears)
+Mode 'openvpn' is up. Test target: 10.10.0.1
+
+(exit code 0)

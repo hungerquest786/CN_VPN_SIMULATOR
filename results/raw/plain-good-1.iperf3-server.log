@@ -1,0 +1,20 @@
+-----------------------------------------------------------
+Server listening on 5201 (test #1)
+-----------------------------------------------------------
+Accepted connection from 10.0.1.2, port 38944
+[  5] local 10.0.3.2 port 5201 connected to 10.0.1.2 port 38948
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-1.01   sec  10.1 MBytes  84.5 Mbits/sec                  
+[  5]   1.01-2.00   sec  11.4 MBytes  95.6 Mbits/sec                  
+[  5]   2.00-3.00   sec  11.4 MBytes  95.8 Mbits/sec                  
+[  5]   3.00-4.00   sec  11.4 MBytes  95.4 Mbits/sec                  
+[  5]   4.00-5.00   sec  11.5 MBytes  96.5 Mbits/sec                  
+[  5]   5.00-6.00   sec  11.4 MBytes  95.4 Mbits/sec                  
+[  5]   6.00-7.00   sec  10.2 MBytes  85.9 Mbits/sec                  
+[  5]   7.00-8.00   sec  7.00 MBytes  58.8 Mbits/sec                  
+[  5]   8.00-9.00   sec  5.88 MBytes  49.2 Mbits/sec                  
+[  5]   9.00-10.00  sec  6.62 MBytes  55.6 Mbits/sec                  
+[  5]  10.00-10.03  sec   256 KBytes  85.8 Mbits/sec                  
+- - - - - - - - - - - - - - - - - - - - - - - - -
+[ ID] Interval           Transfer     Bitrate
+[  5]   0.00-10.03  sec  97.1 MBytes  81.3 Mbits/sec                  receiver

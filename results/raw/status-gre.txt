@@ -1,0 +1,9 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py status
+active mode: gre
+target IP:   10.11.0.1
+tunnel net:  10.11.0.0/24
+WARNING:     GRE has NO ENCRYPTION (cost of tunnelling alone)
+tunnel up:   yes
+ping client1 -> 10.11.0.1: reply
+
+(exit code 0)

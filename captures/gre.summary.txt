@@ -1,0 +1,62 @@
+Capture summary: gre
+============================================================
+file:            captures/gre.pcapng
+size:            2676 bytes
+packets:         16
+recorded on:     router1 eth1 (the router link)
+capture filter:  ip proto 47
+traffic:         ping from client1 to 10.11.0.1, 5 packets, 0.5 s apart
+date:            2026-11-22 02:08:44 +0500
+
+Checks (does the file contain what we expect?)
+------------------------------------------------------------
+[ok] GRE packets (IP protocol 47): found 16, need at least 10   (display filter: ip.proto == 47)
+[ok] ICMP echo requests readable inside GRE: found 5, need at least 5   (display filter: gre && icmp.type == 8)
+[ok] ICMP echo replies readable inside GRE: found 5, need at least 5   (display filter: gre && icmp.type == 0)
+
+Protocol hierarchy (tshark -z io,phs)
+------------------------------------------------------------
+
+===================================================================
+Protocol Hierarchy Statistics
+Filter: 
+
+frame                                    frames:16 bytes:1784
+  eth                                    frames:16 bytes:1784
+    ip                                   frames:16 bytes:1784
+      gre                                frames:16 bytes:1784
+        ipv6                             frames:6 bytes:564
+          icmpv6                         frames:6 bytes:564
+        ip                               frames:10 bytes:1220
+          icmp                           frames:10 bytes:1220
+===================================================================
+
+Conversations (ip)
+------------------------------------------------------------
+================================================================================
+IPv4 Conversations
+Filter:<No Filter>
+                                               |       <-      | |       ->      | |     Total     |    Relative    |   Duration   |
+                                               | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |      Start     |              |
+10.0.1.2             <-> 10.0.3.2                   8 892 bytes       8 892 bytes      16 1,784 bytes     0.000000000        13.2403
+10.11.0.2            <-> 10.11.0.1                  5 610 bytes       5 610 bytes      10 1,220 bytes     0.015734535         2.0163
+================================================================================
+
+First 60 packets (tshark's one-line view)
+------------------------------------------------------------
+    1 0.000000000 fe80::5efe:a00:102 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:01:02:00:00
+    2 0.010180886 fe80::5efe:a00:302 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:03:02:00:00
+    3 0.015734535    10.11.0.2 → 10.11.0.1    ICMP 122 Echo (ping) request  id=0x6f00, seq=1/256, ttl=64
+    4 0.015761145    10.11.0.1 → 10.11.0.2    ICMP 122 Echo (ping) reply    id=0x6f00, seq=1/256, ttl=64 (request in 3)
+    5 0.520021024    10.11.0.2 → 10.11.0.1    ICMP 122 Echo (ping) request  id=0x6f00, seq=2/512, ttl=64
+    6 0.520056146    10.11.0.1 → 10.11.0.2    ICMP 122 Echo (ping) reply    id=0x6f00, seq=2/512, ttl=64 (request in 5)
+    7 1.023875681    10.11.0.2 → 10.11.0.1    ICMP 122 Echo (ping) request  id=0x6f00, seq=3/768, ttl=64
+    8 1.023906090    10.11.0.1 → 10.11.0.2    ICMP 122 Echo (ping) reply    id=0x6f00, seq=3/768, ttl=64 (request in 7)
+    9 1.527962814    10.11.0.2 → 10.11.0.1    ICMP 122 Echo (ping) request  id=0x6f00, seq=4/1024, ttl=64
+   10 1.528000058    10.11.0.1 → 10.11.0.2    ICMP 122 Echo (ping) reply    id=0x6f00, seq=4/1024, ttl=64 (request in 9)
+   11 2.031990746    10.11.0.2 → 10.11.0.1    ICMP 122 Echo (ping) request  id=0x6f00, seq=5/1280, ttl=64
+   12 2.032020372    10.11.0.1 → 10.11.0.2    ICMP 122 Echo (ping) reply    id=0x6f00, seq=5/1280, ttl=64 (request in 11)
+   13 4.536301195 fe80::5efe:a00:102 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:01:02:00:00
+   14 4.536293573 fe80::5efe:a00:302 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:03:02:00:00
+   15 13.240294264 fe80::5efe:a00:102 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:01:02:00:00
+   16 13.240305648 fe80::5efe:a00:302 → ff02::2      ICMPv6 94 Router Solicitation from 0a:00:03:02:00:00

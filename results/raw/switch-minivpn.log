@@ -1,0 +1,13 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py minivpn
+Stopping mode 'plain':
+
+Switching to 'minivpn':
+  Mini VPN: our own server (in serverA) and client (in client1), AES-256-GCM,
+  UDP 51820 for data, TCP 51821 for the handshake. User alice.
+  - start server in serverA (log: lab/.switch/logs/minivpn-server.log)
+  - wait for the server to be ready
+  - start client in client1 (log: lab/.switch/logs/minivpn-client.log)
+  - wait for the client to log in (its tun0 appears)
+Mode 'minivpn' is up. Test target: 10.8.0.1
+
+(exit code 0)

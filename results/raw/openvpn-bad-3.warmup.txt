@@ -1,0 +1,10 @@
+--- try 1
+PING 10.10.0.1 (10.10.0.1) 56(84) bytes of data.
+64 bytes from 10.10.0.1: icmp_seq=1 ttl=64 time=268 ms
+64 bytes from 10.10.0.1: icmp_seq=2 ttl=64 time=280 ms
+64 bytes from 10.10.0.1: icmp_seq=3 ttl=64 time=334 ms
+
+--- 10.10.0.1 ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 408ms
+rtt min/avg/max/mdev = 268.182/294.004/334.291/28.861 ms, pipe 2
+

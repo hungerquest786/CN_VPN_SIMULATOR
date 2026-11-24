@@ -1,0 +1,10 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py status
+active mode: openvpn
+target IP:   10.10.0.1
+tunnel net:  10.10.0.0/24
+process:     server pid 61959 running
+process:     client pid 61960 running
+tunnel up:   yes
+ping client1 -> 10.10.0.1: reply
+
+(exit code 0)

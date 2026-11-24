@@ -90,18 +90,35 @@ def spawn_process(argv, log_path, cwd=None):
     return p.pid
 
 
-def process_alive(pid, match):
-    """True if `pid` is a running process whose command line contains `match` (so a reused pid is not ours)."""
+def process_alive(pid, match, patience=2.0):
+    """True if `pid` is a running process whose command line contains `match` (so a reused pid is not ours).
+
+    Right after we start a program, its command line is not final for a moment. It is empty, or it is a copy of
+    OUR OWN command line (the new process shares our memory until its exec finishes). Both mean "not there yet",
+    so we look again (for up to `patience` seconds) instead of answering False. Any other command line is
+    judged at once."""
     try:
         os.waitpid(pid, os.WNOHANG)          # if it is our own child that ended, collect it
     except (ChildProcessError, OSError):
         pass
     try:
-        cmdline = open(f"/proc/{pid}/cmdline", "rb").read().replace(b"\0", b" ").decode(errors="replace")
-        state = open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()[0]
-    except (OSError, IndexError):
-        return False
-    return state != "Z" and match in cmdline
+        own = open("/proc/self/cmdline", "rb").read()
+    except OSError:
+        own = None
+    deadline = time.monotonic() + patience
+    while True:
+        try:
+            raw = open(f"/proc/{pid}/cmdline", "rb").read()
+            state = open(f"/proc/{pid}/stat").read().rsplit(")", 1)[1].split()[0]
+        except (OSError, IndexError):
+            return False
+        if state == "Z":
+            return False
+        if raw.strip(b"\0 ") and raw != own:
+            return match in raw.replace(b"\0", b" ").decode(errors="replace")
+        if time.monotonic() > deadline:
+            return False                     # still empty / still ours: not the program we are looking for
+        time.sleep(0.005)
 
 
 def stop_process(pid, match, wait=5.0):
@@ -207,6 +224,7 @@ class Switcher:
         self.run = runner
         self.say = say
         self.data = None
+        self.minivpn_client_args = []     # extra flags for client.py (lab/capture.py uses --rekey-interval); none by default
         # these four can be replaced in tests
         self.spawn, self.stop, self.alive, self.sleep = spawn_process, stop_process, process_alive, time.sleep
 
@@ -434,7 +452,8 @@ class Switcher:
         self.wait_until("the Mini VPN server becomes ready", lambda: "server up" in read_text(log), pid, match, log)
         self.data["interfaces"].append([SERVER_NS, "tun0"])
         pid, match, log = self.start_process("client", CLIENT_NS,
-                                             [os.path.join(ROOT, "client", "client.py"), VPN_USER, "-p", VPN_PASSWORD])
+                                             [os.path.join(ROOT, "client", "client.py"), VPN_USER, "-p", VPN_PASSWORD]
+                                             + self.minivpn_client_args)
         self.say("  - wait for the client to log in (its tun0 appears)")
         self.wait_until("the Mini VPN client logs in", lambda: self.link_up(CLIENT_NS, "tun0"), pid, match, log)
         self.data["interfaces"].append([CLIENT_NS, "tun0"])

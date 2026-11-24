@@ -1,0 +1,22 @@
+date (start):    2026-11-17T18:18:12+05:00
+date (end):      2026-11-17T18:52:31+05:00
+duration:        34 min 19 s
+kernel:          7.0.0-43-generic
+os:              Ubuntu 26.04.1 LTS
+iperf3:          iperf 3.20 (cJSON 1.7.15)
+wireguard-tools: wireguard-tools v1.0.20250521 - https://git.zx2c4.com/wireguard-tools/
+openvpn:         OpenVPN 2.7.0 x86_64-pc-linux-gnu [SSL (OpenSSL)] [LZO] [LZ4] [EPOLL] [PKCS11] [MH/PKTINFO] [AEAD] [DCO]
+python:          3.14.4
+git commit:      3f0d1c7 (with uncommitted changes)
+
+modes:           plain, minivpn, wireguard, openvpn, gre
+conditions:      none, good, normal, bad
+runs per cell:   3
+iperf3:          TCP, 10 s, client1 -> serverA target address, receiver-side Mbit/s
+ping:            100 packets, interval 0.2 s, mean RTT per run
+warm-up:         3 pings (up to 3 tries) before every run
+netem presets (lab/netem.sh, applied on eth1 of router1 and router2, both directions):
+    good)   OPTS="delay 10ms 2ms loss 0.1% rate 100mbit"
+    normal) OPTS="delay 50ms 10ms loss 1% rate 20mbit"
+    bad)    OPTS="delay 150ms 30ms loss 5% rate 5mbit"
+    none)   no netem (netem.sh off): the lab link as it is

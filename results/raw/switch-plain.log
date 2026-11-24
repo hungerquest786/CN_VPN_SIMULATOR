@@ -1,0 +1,6 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py plain
+Switching to 'plain':
+  - no tunnel: the target is serverA's real address
+Mode 'plain' is up. Test target: 10.0.3.2
+
+(exit code 0)

@@ -1,0 +1,94 @@
+Capture summary: openvpn
+============================================================
+file:            captures/openvpn.pcapng
+size:            13336 bytes
+packets:         49
+recorded on:     router1 eth1 (the router link)
+capture filter:  udp port 1194
+traffic:         ping from client1 to 10.10.0.1, 10 packets, 0.5 s apart
+date:            2026-11-22 02:10:56 +0500
+
+Checks (does the file contain what we expect?)
+------------------------------------------------------------
+[ok] client hard reset (opcode 7): found 1, need at least 1   (display filter: openvpn.opcode == 7)
+[ok] server hard reset (opcode 8): found 1, need at least 1   (display filter: openvpn.opcode == 8)
+[ok] control packets, the TLS handshake (opcode 4): found 10, need at least 2   (display filter: openvpn.opcode == 4)
+[ok] data packets (opcode 9): found 31, need at least 10   (display filter: openvpn.opcode == 9)
+
+Protocol hierarchy (tshark -z io,phs)
+------------------------------------------------------------
+
+===================================================================
+Protocol Hierarchy Statistics
+Filter: 
+
+frame                                    frames:49 bytes:11345
+  eth                                    frames:49 bytes:11345
+    ip                                   frames:49 bytes:11345
+      udp                                frames:49 bytes:11345
+        openvpn                          frames:49 bytes:11345
+          tls                            frames:10 bytes:6539
+            tls                          frames:1 bytes:1264
+===================================================================
+
+Conversations (udp)
+------------------------------------------------------------
+================================================================================
+UDP Conversations
+Filter:<No Filter>
+                                                           |       <-      | |       ->      | |     Total     |    Relative    |   Duration   |
+                                                           | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |      Start     |              |
+10.0.1.2:44847             <-> 10.0.3.2:1194                   23 5,682 bytes      26 5,663 bytes      49 11 kB         0.000000000        39.0165
+================================================================================
+
+First 60 packets (tshark's one-line view)
+------------------------------------------------------------
+    1 0.000000000     10.0.1.2 → 10.0.3.2     OpenVPN 56 MessageType: P_CONTROL_HARD_RESET_CLIENT_V2
+    2 0.000069974     10.0.3.2 → 10.0.1.2     OpenVPN 68 MessageType: P_CONTROL_HARD_RESET_SERVER_V2
+    3 0.000361237     10.0.1.2 → 10.0.3.2     SSL 1264 [OpenVPN Message segment of a reassembled PDU] 
+    4 0.000612858     10.0.3.2 → 10.0.1.2     OpenVPN 64 MessageType: P_ACK_V1
+    5 0.000641329     10.0.1.2 → 10.0.3.2     TLSv1.2 389 Client Hello
+    6 0.001249608     10.0.3.2 → 10.0.1.2     SSL 1264 [OpenVPN Message segment of a reassembled PDU] 
+    7 0.001284094     10.0.1.2 → 10.0.3.2     OpenVPN 68 MessageType: P_ACK_V1
+    8 0.001298332     10.0.3.2 → 10.0.1.2     TLSv1.3 1264 Server Hello, Change Cipher Spec, Application Data, Application Data, Application Data, Application Data [OpenVPN Message segment of a reassembled PDU] 
+    9 0.001881859     10.0.1.2 → 10.0.3.2     OpenVPN 72 MessageType: P_ACK_V1
+   10 0.001903561     10.0.3.2 → 10.0.1.2     TLSv1.3 106 Application Data
+   11 0.002256827     10.0.1.2 → 10.0.3.2     TLSv1.3 1264 Change Cipher Spec, Application Data, Application Data, Application Data [OpenVPN Message segment of a reassembled PDU] 
+   12 0.002698926     10.0.3.2 → 10.0.1.2     TLSv1.3 234 Application Data, Application Data
+   13 0.002720127     10.0.1.2 → 10.0.3.2     TLSv1.3 138 Application Data
+   14 0.002799462     10.0.3.2 → 10.0.1.2     TLSv1.3 308 Application Data
+   15 0.002846221     10.0.1.2 → 10.0.3.2     OpenVPN 76 MessageType: P_ACK_V1
+   16 0.002905786     10.0.1.2 → 10.0.3.2     OpenVPN 76 MessageType: P_ACK_V1
+   17 0.003154650     10.0.3.2 → 10.0.1.2     TLSv1.3 308 Application Data
+   18 0.003851387     10.0.1.2 → 10.0.3.2     OpenVPN 76 MessageType: P_ACK_V1
+   19 0.003886119     10.0.1.2 → 10.0.3.2     OpenVPN 118 MessageType: P_DATA_V2
+   20 0.201481909     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   21 0.201614429     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   22 0.706217826     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   23 0.706449338     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   24 1.210895061     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   25 1.211028568     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   26 1.714945670     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   27 1.715092538     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   28 2.218932437     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   29 2.219177822     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   30 2.723081949     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   31 2.723211035     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   32 3.226946038     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   33 3.227155696     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   34 3.442666430     10.0.3.2 → 10.0.1.2     OpenVPN 118 MessageType: P_DATA_V2
+   35 3.730837171     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   36 3.731052331     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   37 4.234901969     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   38 4.235023959     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   39 4.338799306     10.0.1.2 → 10.0.3.2     OpenVPN 118 MessageType: P_DATA_V2
+   40 4.738636246     10.0.1.2 → 10.0.3.2     OpenVPN 154 MessageType: P_DATA_V2
+   41 4.738754951     10.0.3.2 → 10.0.1.2     OpenVPN 154 MessageType: P_DATA_V2
+   42 10.483701901     10.0.3.2 → 10.0.1.2     OpenVPN 118 MessageType: P_DATA_V2
+   43 12.530962369     10.0.1.2 → 10.0.3.2     OpenVPN 118 MessageType: P_DATA_V2
+   44 20.669424180     10.0.3.2 → 10.0.1.2     OpenVPN 86 MessageType: P_DATA_V2
+   45 21.880072770     10.0.1.2 → 10.0.3.2     OpenVPN 86 MessageType: P_DATA_V2
+   46 24.306506521     10.0.3.2 → 10.0.1.2     OpenVPN 118 MessageType: P_DATA_V2
+   47 29.427029418     10.0.1.2 → 10.0.3.2     OpenVPN 118 MessageType: P_DATA_V2
+   48 34.779493998     10.0.3.2 → 10.0.1.2     OpenVPN 86 MessageType: P_DATA_V2
+   49 39.016459959     10.0.1.2 → 10.0.3.2     OpenVPN 86 MessageType: P_DATA_V2

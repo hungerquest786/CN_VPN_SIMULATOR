@@ -1,0 +1,50 @@
+Capture summary: plain
+============================================================
+file:            captures/plain.pcapng
+size:            1664 bytes
+packets:         10
+recorded on:     router1 eth1 (the router link)
+capture filter:  icmp
+traffic:         ping from client1 to 10.0.3.2, 5 packets, 0.5 s apart
+date:            2026-11-22 00:03:00 +0500
+
+Checks (does the file contain what we expect?)
+------------------------------------------------------------
+[ok] ICMP echo requests: found 5, need at least 5   (display filter: icmp.type == 8)
+[ok] ICMP echo replies: found 5, need at least 5   (display filter: icmp.type == 0)
+
+Protocol hierarchy (tshark -z io,phs)
+------------------------------------------------------------
+
+===================================================================
+Protocol Hierarchy Statistics
+Filter: 
+
+frame                                    frames:10 bytes:980
+  eth                                    frames:10 bytes:980
+    ip                                   frames:10 bytes:980
+      icmp                               frames:10 bytes:980
+===================================================================
+
+Conversations (ip)
+------------------------------------------------------------
+================================================================================
+IPv4 Conversations
+Filter:<No Filter>
+                                               |       <-      | |       ->      | |     Total     |    Relative    |   Duration   |
+                                               | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |      Start     |              |
+10.0.1.2             <-> 10.0.3.2                   5 490 bytes       5 490 bytes      10 980 bytes     0.000000000         2.0119
+================================================================================
+
+First 60 packets (tshark's one-line view)
+------------------------------------------------------------
+    1 0.000000000     10.0.1.2 → 10.0.3.2     ICMP 98 Echo (ping) request  id=0x5503, seq=1/256, ttl=63
+    2 0.000025361     10.0.3.2 → 10.0.1.2     ICMP 98 Echo (ping) reply    id=0x5503, seq=1/256, ttl=63 (request in 1)
+    3 0.500876633     10.0.1.2 → 10.0.3.2     ICMP 98 Echo (ping) request  id=0x5503, seq=2/512, ttl=63
+    4 0.500896970     10.0.3.2 → 10.0.1.2     ICMP 98 Echo (ping) reply    id=0x5503, seq=2/512, ttl=63 (request in 3)
+    5 1.004362088     10.0.1.2 → 10.0.3.2     ICMP 98 Echo (ping) request  id=0x5503, seq=3/768, ttl=63
+    6 1.004384975     10.0.3.2 → 10.0.1.2     ICMP 98 Echo (ping) reply    id=0x5503, seq=3/768, ttl=63 (request in 5)
+    7 1.507855910     10.0.1.2 → 10.0.3.2     ICMP 98 Echo (ping) request  id=0x5503, seq=4/1024, ttl=63
+    8 1.507877363     10.0.3.2 → 10.0.1.2     ICMP 98 Echo (ping) reply    id=0x5503, seq=4/1024, ttl=63 (request in 7)
+    9 2.011849946     10.0.1.2 → 10.0.3.2     ICMP 98 Echo (ping) request  id=0x5503, seq=5/1280, ttl=63
+   10 2.011871485     10.0.3.2 → 10.0.1.2     ICMP 98 Echo (ping) reply    id=0x5503, seq=5/1280, ttl=63 (request in 9)

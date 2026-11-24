@@ -418,6 +418,65 @@ def test_spawn_logs_to_file_and_stop_process_stops_it(tmp_path):
             pass
 
 
+def test_process_alive_is_not_fooled_while_a_new_process_execs(tmp_path):
+    """While a process replaces itself (exec) its /proc cmdline is empty for a moment. A check made right
+    after starting it must still say 'alive' (otherwise switch.py would report a good start as stopped)."""
+    wrong = 0
+    for i in range(300):
+        pid = switch.spawn_process(["sh", "-c", "exec sleep 60"], str(tmp_path / f"p{i}.log"))
+        try:
+            if not switch.process_alive(pid, "sleep"):          # checked at once, no waiting
+                wrong += 1
+        finally:
+            os.kill(pid, 9)
+            os.waitpid(pid, 0)
+    assert wrong == 0
+
+
+def test_process_alive_waits_while_the_command_line_is_still_a_copy_of_ours():
+    """A new process shares its parent's memory until its exec finishes, so for a moment its command line is
+    our own. Simulated with fork: the child keeps our command line for 0.3 s, then becomes 'sleep'."""
+    pid = os.fork()
+    if pid == 0:                                       # child: never returns into pytest
+        try:
+            time.sleep(0.3)
+            os.execvp("sleep", ["sleep", "60"])
+        finally:
+            os._exit(1)
+    try:
+        assert switch.process_alive(pid, "sleep")      # checked at once: must wait for the exec, not say False
+        assert not switch.process_alive(pid, "some-other-program")
+    finally:
+        os.kill(pid, 9)
+        os.waitpid(pid, 0)
+
+
+def test_process_alive_gives_up_if_the_command_line_never_changes():
+    pid = os.fork()
+    if pid == 0:
+        try:
+            time.sleep(60)
+        finally:
+            os._exit(1)
+    try:
+        t0 = time.monotonic()
+        assert not switch.process_alive(pid, "sleep", patience=0.3)    # still our own command line: not it
+        assert time.monotonic() - t0 < 2
+    finally:
+        os.kill(pid, 9)
+        os.waitpid(pid, 0)
+
+
+def test_process_alive_is_quick_for_a_process_that_is_gone():
+    pid = os.fork()
+    if pid == 0:
+        os._exit(0)
+    time.sleep(0.2)
+    t0 = time.monotonic()
+    assert not switch.process_alive(pid, "sleep")
+    assert time.monotonic() - t0 < 1
+
+
 def test_stop_process_kills_what_ignores_sigterm(tmp_path):
     code = "import signal,time; signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(60)"
     pid = switch.spawn_process([sys.executable, "-c", code], str(tmp_path / "q.log"))

@@ -1,0 +1,81 @@
+Plan: 5 modes x 4 conditions x 3 runs = 60 runs
+Estimated time: about 40 min 05 s (a guess, the real pace is shown below)
+Results go to results/
+
+== mode plain: switching ==
+   target 10.0.3.2
+[1/60] plain none run 1: 38620.2 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 33 s, about 32 min 41 s left)
+[2/60] plain none run 2: 33805.0 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 1 min 06 s, about 32 min 05 s left)
+[3/60] plain none run 3: 36819.8 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 1 min 39 s, about 31 min 30 s left)
+[4/60] plain good run 1: 81.3 Mbit/s, RTT 24.0 ms, loss 0%   (elapsed 2 min 13 s, about 31 min 00 s left)
+[5/60] plain good run 2: 49.6 Mbit/s, RTT 20.8 ms, loss 0%   (elapsed 2 min 46 s, about 30 min 21 s left)
+[6/60] plain good run 3: 60.2 Mbit/s, RTT 21.3 ms, loss 0%   (elapsed 3 min 18 s, about 29 min 45 s left)
+[7/60] plain normal run 1: 1.9 Mbit/s, RTT 102.4 ms, loss 1%   (elapsed 3 min 52 s, about 29 min 17 s left)
+[8/60] plain normal run 2: 1.3 Mbit/s, RTT 102.0 ms, loss 5%   (elapsed 4 min 26 s, about 28 min 47 s left)
+[9/60] plain normal run 3: 1.7 Mbit/s, RTT 100.7 ms, loss 1%   (elapsed 5 min 00 s, about 28 min 20 s left)
+[10/60] plain bad run 1: 0.5 Mbit/s, RTT 302.9 ms, loss 7%   (elapsed 5 min 37 s, about 28 min 06 s left)
+[11/60] plain bad run 2: 0.3 Mbit/s, RTT 303.4 ms, loss 9%   (elapsed 6 min 16 s, about 27 min 55 s left)
+[12/60] plain bad run 3: 0.7 Mbit/s, RTT 312.8 ms, loss 11%   (elapsed 6 min 53 s, about 27 min 33 s left)
+
+== mode minivpn: switching ==
+   target 10.8.0.1
+[13/60] minivpn none run 1: 309.0 Mbit/s, RTT 1.2 ms, loss 0%   (elapsed 7 min 27 s, about 26 min 54 s left)
+[14/60] minivpn none run 2: 299.1 Mbit/s, RTT 1.1 ms, loss 0%   (elapsed 7 min 59 s, about 26 min 15 s left)
+[15/60] minivpn none run 3: 261.8 Mbit/s, RTT 1.3 ms, loss 0%   (elapsed 8 min 32 s, about 25 min 35 s left)
+[16/60] minivpn good run 1: 17.2 Mbit/s, RTT 22.5 ms, loss 0%   (elapsed 9 min 05 s, about 24 min 59 s left)
+[17/60] minivpn good run 2: 20.9 Mbit/s, RTT 22.4 ms, loss 0%   (elapsed 9 min 38 s, about 24 min 21 s left)
+[18/60] minivpn good run 3: 24.2 Mbit/s, RTT 22.4 ms, loss 0%   (elapsed 10 min 10 s, about 23 min 44 s left)
+[19/60] minivpn normal run 1: 2.4 Mbit/s, RTT 108.5 ms, loss 1%   (elapsed 10 min 45 s, about 23 min 11 s left)
+[20/60] minivpn normal run 2: 1.2 Mbit/s, RTT 104.6 ms, loss 3%   (elapsed 11 min 19 s, about 22 min 37 s left)
+[21/60] minivpn normal run 3: 2.4 Mbit/s, RTT 105.0 ms, loss 2%   (elapsed 11 min 52 s, about 22 min 03 s left)
+[22/60] minivpn bad run 1: 0.3 Mbit/s, RTT 309.4 ms, loss 6%   (elapsed 12 min 28 s, about 21 min 33 s left)
+[23/60] minivpn bad run 2: 0.2 Mbit/s, RTT 307.0 ms, loss 17%   (elapsed 13 min 05 s, about 21 min 02 s left)
+[24/60] minivpn bad run 3: 0.1 Mbit/s, RTT 302.6 ms, loss 15%   (elapsed 13 min 42 s, about 20 min 32 s left)
+
+== mode wireguard: switching ==
+   target 10.9.0.1
+[25/60] wireguard none run 1: 2460.9 Mbit/s, RTT 0.6 ms, loss 0%   (elapsed 14 min 15 s, about 19 min 57 s left)
+[26/60] wireguard none run 2: 2299.6 Mbit/s, RTT 0.6 ms, loss 0%   (elapsed 14 min 48 s, about 19 min 21 s left)
+[27/60] wireguard none run 3: 2494.5 Mbit/s, RTT 0.6 ms, loss 0%   (elapsed 15 min 21 s, about 18 min 46 s left)
+[28/60] wireguard good run 1: 32.0 Mbit/s, RTT 22.1 ms, loss 0%   (elapsed 15 min 54 s, about 18 min 10 s left)
+[29/60] wireguard good run 2: 26.3 Mbit/s, RTT 22.1 ms, loss 0%   (elapsed 16 min 27 s, about 17 min 35 s left)
+[30/60] wireguard good run 3: 23.6 Mbit/s, RTT 22.2 ms, loss 0%   (elapsed 17 min 00 s, about 17 min 00 s left)
+[31/60] wireguard normal run 1: 2.7 Mbit/s, RTT 102.6 ms, loss 2%   (elapsed 17 min 33 s, about 16 min 25 s left)
+[32/60] wireguard normal run 2: 1.1 Mbit/s, RTT 101.9 ms, loss 0%   (elapsed 18 min 08 s, about 15 min 52 s left)
+[33/60] wireguard normal run 3: 1.8 Mbit/s, RTT 103.1 ms, loss 0%   (elapsed 18 min 41 s, about 15 min 17 s left)
+[34/60] wireguard bad run 1: 0.1 Mbit/s, RTT 302.7 ms, loss 8%   (elapsed 19 min 20 s, about 14 min 47 s left)
+[35/60] wireguard bad run 2: 0.2 Mbit/s, RTT 302.8 ms, loss 8%   (elapsed 20 min 01 s, about 14 min 18 s left)
+[36/60] wireguard bad run 3: 0.2 Mbit/s, RTT 302.2 ms, loss 18%   (elapsed 20 min 37 s, about 13 min 45 s left)
+
+== mode openvpn: switching ==
+   target 10.10.0.1
+[37/60] openvpn none run 1: 716.1 Mbit/s, RTT 0.5 ms, loss 0%   (elapsed 21 min 11 s, about 13 min 10 s left)
+[38/60] openvpn none run 2: 749.4 Mbit/s, RTT 0.5 ms, loss 0%   (elapsed 21 min 44 s, about 12 min 35 s left)
+[39/60] openvpn none run 3: 714.1 Mbit/s, RTT 0.6 ms, loss 0%   (elapsed 22 min 17 s, about 12 min 00 s left)
+[40/60] openvpn good run 1: 28.1 Mbit/s, RTT 21.7 ms, loss 0%   (elapsed 22 min 49 s, about 11 min 25 s left)
+[41/60] openvpn good run 2: 18.6 Mbit/s, RTT 22.7 ms, loss 0%   (elapsed 23 min 22 s, about 10 min 50 s left)
+[42/60] openvpn good run 3: 15.8 Mbit/s, RTT 22.5 ms, loss 0%   (elapsed 23 min 55 s, about 10 min 15 s left)
+[43/60] openvpn normal run 1: 2.0 Mbit/s, RTT 102.7 ms, loss 3%   (elapsed 24 min 29 s, about 9 min 41 s left)
+[44/60] openvpn normal run 2: 1.5 Mbit/s, RTT 103.6 ms, loss 1%   (elapsed 25 min 02 s, about 9 min 06 s left)
+[45/60] openvpn normal run 3: 1.3 Mbit/s, RTT 106.2 ms, loss 2%   (elapsed 25 min 36 s, about 8 min 32 s left)
+[46/60] openvpn bad run 1: 0.2 Mbit/s, RTT 302.2 ms, loss 10%   (elapsed 26 min 15 s, about 7 min 59 s left)
+[47/60] openvpn bad run 2: 0.1 Mbit/s, RTT 308.8 ms, loss 13%   (elapsed 26 min 51 s, about 7 min 26 s left)
+[48/60] openvpn bad run 3: 0.4 Mbit/s, RTT 303.4 ms, loss 13%   (elapsed 27 min 27 s, about 6 min 52 s left)
+
+== mode gre: switching ==
+   target 10.11.0.1
+[49/60] gre none run 1: 30043.6 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 28 min 01 s, about 6 min 17 s left)
+[50/60] gre none run 2: 27649.5 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 28 min 34 s, about 5 min 43 s left)
+[51/60] gre none run 3: 25894.5 Mbit/s, RTT 0.1 ms, loss 0%   (elapsed 29 min 07 s, about 5 min 08 s left)
+[52/60] gre good run 1: 86.6 Mbit/s, RTT 20.7 ms, loss 0%   (elapsed 29 min 39 s, about 4 min 34 s left)
+[53/60] gre good run 2: 80.2 Mbit/s, RTT 21.6 ms, loss 0%   (elapsed 30 min 12 s, about 3 min 59 s left)
+[54/60] gre good run 3: 91.7 Mbit/s, RTT 21.8 ms, loss 0%   (elapsed 30 min 45 s, about 3 min 25 s left)
+[55/60] gre normal run 1: 2.5 Mbit/s, RTT 100.6 ms, loss 3%   (elapsed 31 min 19 s, about 2 min 51 s left)
+[56/60] gre normal run 2: 1.7 Mbit/s, RTT 99.8 ms, loss 2%   (elapsed 31 min 53 s, about 2 min 17 s left)
+[57/60] gre normal run 3: 2.4 Mbit/s, RTT 102.3 ms, loss 3%   (elapsed 32 min 27 s, about 1 min 42 s left)
+[58/60] gre bad run 1: 0.4 Mbit/s, RTT 302.5 ms, loss 11%   (elapsed 33 min 04 s, about 1 min 08 s left)
+[59/60] gre bad run 2: 0.5 Mbit/s, RTT 302.3 ms, loss 9%   (elapsed 33 min 42 s, about 34 s left)
+[60/60] gre bad run 3: 0.7 Mbit/s, RTT 298.3 ms, loss 9%   (elapsed 34 min 19 s, about 0 s left)
+
+Done in 34 min 19 s. Wrote summary.csv, rtt_detail.csv, table.md, notes.txt, environment.txt in /home/mancity_hunger/projects/cn-mini-vpn/results
+Cleanup: switch.py off: ok; netem.sh off: ok

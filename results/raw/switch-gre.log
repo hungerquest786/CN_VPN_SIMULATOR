@@ -1,0 +1,23 @@
+$ /usr/bin/python3 /home/mancity_hunger/projects/cn-mini-vpn/lab/switch.py gre
+Stopping mode 'openvpn':
+  - undo: stop client (pid 61960) -> stopped
+  - undo: stop server (pid 61959) -> stopped
+  - undo: write client config /home/mancity_hunger/projects/cn-mini-vpn/lab/.switch/openvpn-pki/client.conf
+  - undo: write server config /home/mancity_hunger/projects/cn-mini-vpn/lab/.switch/openvpn-pki/server.conf
+  - undo: write client certificate rules
+  - undo: write server certificate rules
+  - undo: delete the OpenVPN keys and certificates
+  - undo: create folder /home/mancity_hunger/projects/cn-mini-vpn/lab/.switch/openvpn-pki
+
+Switching to 'gre':
+  GRE: NO ENCRYPTION. Packets are only wrapped (protocol 47, no UDP choice).
+  It shows the cost of tunnelling alone.
+  - client1: create gre1 (10.0.1.2 -> 10.0.3.2)
+  - client1: address 10.11.0.2/24
+  - client1: MTU 1400, bring up
+  - serverA: create gre1 (10.0.3.2 -> 10.0.1.2)
+  - serverA: address 10.11.0.1/24
+  - serverA: MTU 1400, bring up
+Mode 'gre' is up. Test target: 10.11.0.1
+
+(exit code 0)

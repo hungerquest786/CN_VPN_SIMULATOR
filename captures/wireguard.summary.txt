@@ -1,0 +1,65 @@
+Capture summary: wireguard
+============================================================
+file:            captures/wireguard.pcapng
+size:            4932 bytes
+packets:         23
+recorded on:     router1 eth1 (the router link)
+capture filter:  udp port 51822
+traffic:         ping from client1 to 10.9.0.1, 10 packets, 0.5 s apart
+date:            2026-11-22 02:09:05 +0500
+
+Checks (does the file contain what we expect?)
+------------------------------------------------------------
+[ok] handshake initiation (wg.type 1): found 1, need at least 1   (display filter: wg.type == 1)
+[ok] handshake response (wg.type 2): found 1, need at least 1   (display filter: wg.type == 2)
+[ok] transport data (wg.type 4): found 21, need at least 10   (display filter: wg.type == 4)
+
+Protocol hierarchy (tshark -z io,phs)
+------------------------------------------------------------
+
+===================================================================
+Protocol Hierarchy Statistics
+Filter: 
+
+frame                                    frames:23 bytes:3798
+  eth                                    frames:23 bytes:3798
+    ip                                   frames:23 bytes:3798
+      udp                                frames:23 bytes:3798
+        wg                               frames:23 bytes:3798
+===================================================================
+
+Conversations (udp)
+------------------------------------------------------------
+================================================================================
+UDP Conversations
+Filter:<No Filter>
+                                                           |       <-      | |       ->      | |     Total     |    Relative    |   Duration   |
+                                                           | Frames  Bytes | | Frames  Bytes | | Frames  Bytes |      Start     |              |
+10.0.1.2:41754             <-> 10.0.3.2:51822                  11 1,834 bytes      12 1,964 bytes      23 3,798 bytes     0.000000000        14.5521
+================================================================================
+
+First 60 packets (tshark's one-line view)
+------------------------------------------------------------
+    1 0.000000000     10.0.1.2 → 10.0.3.2     WireGuard 190 Handshake Initiation, sender=0x030E60FC
+    2 0.000306190     10.0.3.2 → 10.0.1.2     WireGuard 134 Handshake Response, sender=0xA4191CC0, receiver=0x030E60FC
+    3 0.000519106     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=0, datalen=96
+    4 0.000634642     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=0, datalen=96
+    5 0.503571287     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=1, datalen=96
+    6 0.504387952     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=1, datalen=96
+    7 1.004810184     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=2, datalen=96
+    8 1.004918903     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=2, datalen=96
+    9 1.512098873     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=3, datalen=96
+   10 1.512236115     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=3, datalen=96
+   11 2.015789627     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=4, datalen=96
+   12 2.015864441     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=4, datalen=96
+   13 2.519644681     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=5, datalen=96
+   14 2.519756247     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=5, datalen=96
+   15 3.024209711     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=6, datalen=96
+   16 3.024288012     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=6, datalen=96
+   17 3.527673232     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=7, datalen=96
+   18 3.527818493     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=7, datalen=96
+   19 4.032023822     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=8, datalen=96
+   20 4.032159956     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=8, datalen=96
+   21 4.535906164     10.0.1.2 → 10.0.3.2     WireGuard 170 Transport Data, receiver=0xA4191CC0, counter=9, datalen=96
+   22 4.536086022     10.0.3.2 → 10.0.1.2     WireGuard 170 Transport Data, receiver=0x030E60FC, counter=9, datalen=96
+   23 14.552093751     10.0.1.2 → 10.0.3.2     WireGuard 74 Keepalive, receiver=0xA4191CC0, counter=10

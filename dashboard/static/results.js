@@ -5,6 +5,7 @@
 
   // What each condition means (the netem presets in lab/netem.sh).
   const CONDITIONS = {
+    none: "no impairment (netem off)",
     good: "10 ms delay, 2 ms jitter, 0.1% loss, 100 Mbit",
     normal: "50 ms delay, 10 ms jitter, 1% loss, 20 Mbit",
     bad: "150 ms delay, 30 ms jitter, 5% loss, 5 Mbit",
