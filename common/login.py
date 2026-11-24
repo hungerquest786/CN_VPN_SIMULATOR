@@ -38,6 +38,9 @@ class Session:
     addr: tuple = None     # UDP address the client sends from (learned from its first packet)
     last_heard: float = field(default_factory=time.monotonic)   # when we last got a good packet
     keys: KeyRing = None   # per-epoch keys, sequence counters and replay windows (Section 7)
+    bytes_in: int = 0      # UDP bytes received from this client (for the dashboard, Section 9)
+    bytes_out: int = 0     # UDP bytes sent to this client
+    connected_at: float = field(default_factory=time.time)   # wall-clock time of the login
 
     def __post_init__(self):
         self.keys = KeyRing(send_key=self.s2c, recv_key=self.c2s)    # epoch 0 = the handshake keys
@@ -63,6 +66,11 @@ class Sessions:
                     self.by_id[session_id] = self.by_ip[ip] = s
                     return s
             return None
+
+    def all(self):
+        """A copy of the current list of sessions (safe to loop over)."""
+        with self.lock:
+            return list(self.by_id.values())
 
     def expire(self, timeout=DEAD_AFTER, now=None):
         """Remove sessions silent for `timeout` seconds; their address is free again. Returns them."""

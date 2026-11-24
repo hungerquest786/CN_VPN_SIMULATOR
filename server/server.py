@@ -10,6 +10,7 @@ drops replayed packets (sliding window) and packets with a wrong inner source IP
 Section 7: the client rekeys over its TCP connection (kept open after login). Each epoch has its
 own keys, counter and replay window; the previous epoch still works for a few seconds.
 """
+import argparse
 import atexit
 import os
 import signal
@@ -28,12 +29,19 @@ from common.dropstats import DropStats
 from common.login import DEAD_AFTER, Sessions, server_login
 from common.rekey import RekeyError, server_rekey
 from common.packet import decode, TYPE_DATA, TYPE_KEEPALIVE
+from common.serverstats import ServerStats
 from common.tun import open_tun
 from common.users import load_users
 
 BIND = ("10.0.3.2", 51820)        # UDP data
 TCP_BIND = ("10.0.3.2", 51821)    # TCP handshake + login
 USERS_FILE = "users.json"
+ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
+
+parser = argparse.ArgumentParser(description="Mini VPN server")
+parser.add_argument("--stats-file", default=os.path.join(ROOT, "stats.json"),
+                    help="where to write the live numbers for the dashboard (about once a second)")
+args = parser.parse_args()
 
 with open("certs/server.cert", "rb") as f:
     cert = f.read()
@@ -42,6 +50,7 @@ with open("certs/server.key", "rb") as f:
 
 sessions = Sessions()
 stats = DropStats()   # counts tunnel packets we refuse (not IPv4, wrong source)
+live = ServerStats()  # numbers for the dashboard (stats.json)
 
 NAT_TABLE = "minivpn_nat"   # our own nft table, so removing it cannot touch anything else
 
@@ -79,11 +88,14 @@ def handle_client(conn, peer):
             hello = recv_msg(conn)
             reply, c2s, s2c, sid = server_reply(hello, cert, signing_key)
             send_msg(conn, reply)
+            live.handshake_done()
             # Read users.json at every login, so new users work without a restart.
             s = server_login(conn, c2s, s2c, sid, load_users(USERS_FILE), sessions)
             if not s:
                 print(f"{peer[0]}: login refused")
+                live.login_refused(peer[0])
                 return
+            live.login_ok(s.user, s.ip)
             print(f"{peer[0]}: user {s.user!r} logged in, got {s.ip}, session_id={sid}")
             # Keep the connection: the client sends a rekey request on it every so often.
             # We look up every second whether the session still exists (it may have timed out).
@@ -96,6 +108,7 @@ def handle_client(conn, peer):
                     reply, epoch = server_rekey(msg, s.keys, sid)
                     send_msg(conn, reply)      # keys already switched; the reply used the old ones
                     print(f"session {sid} ({s.user}): rekeyed, now epoch {epoch}")
+                    live.rekeyed(s.user, epoch)
     except (HandshakeError, RekeyError) as e:
         print(f"{peer[0]}: handshake/rekey failed: {e}")
     except OSError:
@@ -113,12 +126,19 @@ listener.bind(TCP_BIND)
 listener.listen(16)
 print(f"server up: UDP {BIND}, TCP {TCP_BIND}")
 
+stats_warned = False
 # Only this main loop touches the sockets and each session's seq counter.
 try:
     while True:
         ready, _, _ = select.select([tun_fd, sock, listener], [], [], 1.0)   # wake up every second
         for dead in sessions.expire():
             print(f"session {dead.session_id} ({dead.user}) silent for {DEAD_AFTER}s: removed, {dead.ip} is free")
+        try:
+            live.maybe_write(args.stats_file, sessions.all())    # at most once a second
+        except OSError as e:               # a stats problem must never stop the VPN
+            if not stats_warned:
+                print(f"cannot write {args.stats_file}: {e} (the VPN keeps working)")
+                stats_warned = True
         line = stats.summary()            # at most one line every 10 s
         if line:
             print(line)
@@ -144,12 +164,18 @@ try:
                 continue
             if not ek.window.accept(seq):     # this epoch's window; only checked after decrypt worked
                 s.keys.replays += 1
+                live.replay_dropped(s.user, seq)
                 print(f"replay dropped: session {sid} epoch {ek.epoch} seq {seq} (total dropped {s.keys.replays})")
                 continue
             s.addr = addr                     # the packet was real, so remember where it came from
+            s.bytes_in += len(data)
+            live.add_bytes(len(data))
             s.last_heard = time.monotonic()
             if ptype == TYPE_KEEPALIVE:       # answer with our own keepalive
-                sock.sendto(s.keys.seal(TYPE_KEEPALIVE, sid, b""), addr)
+                out = s.keys.seal(TYPE_KEEPALIVE, sid, b"")
+                sock.sendto(out, addr)
+                s.bytes_out += len(out)
+                live.add_bytes(len(out))
             elif ptype == TYPE_DATA:
                 # Source check: bytes 12..15 of an IPv4 packet are the source address.
                 # It must be the address we gave this client. Anything that is not IPv4
@@ -163,6 +189,8 @@ try:
                 elif socket.inet_ntoa(plain[12:16]) != s.ip:
                     reason = "wrong source"
                     detail = f"session {sid}, IP version 4, source {socket.inet_ntoa(plain[12:16])}, should be {s.ip}"
+                if reason == "wrong source":
+                    live.wrong_source_dropped(s.user, socket.inet_ntoa(plain[12:16]))
                 if reason:
                     line = stats.add(reason, detail)
                     if line:
@@ -174,6 +202,9 @@ try:
             # Bytes 16..19 of an IPv4 packet are the destination address.
             s = sessions.by_ip.get(socket.inet_ntoa(plain[16:20])) if len(plain) >= 20 else None
             if s and s.addr:                  # drop it if we know no such client (or it never spoke)
-                sock.sendto(s.keys.seal(TYPE_DATA, s.session_id, plain), s.addr)
+                out = s.keys.seal(TYPE_DATA, s.session_id, plain)
+                sock.sendto(out, s.addr)
+                s.bytes_out += len(out)
+                live.add_bytes(len(out))
 except KeyboardInterrupt:
     print("\nserver stopped")                # exiting normally runs the NAT cleanup

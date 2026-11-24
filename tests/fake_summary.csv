@@ -1,0 +1,46 @@
+protocol,condition,run,throughput_mbps,rtt_ms,loss_pct
+Plain,good,1,912.504,0.411,0
+Plain,good,2,921.581,0.4,0
+Plain,good,3,951.4,0.409,0
+Plain,normal,1,18.379,52.37,0.995
+Plain,normal,2,19.501,48.969,0.996
+Plain,normal,3,19.439,49.893,1.036
+Plain,bad,1,4.954,146.292,4.906
+Plain,bad,2,4.816,157.34,5.052
+Plain,bad,3,4.691,151.053,4.908
+Mini VPN,good,1,400.871,0.896,0
+Mini VPN,good,2,401.245,0.881,0
+Mini VPN,good,3,408.675,0.885,0
+Mini VPN,normal,1,18.281,52.235,0.91
+Mini VPN,normal,2,17.353,54.049,0.926
+Mini VPN,normal,3,17.26,51.304,0.916
+Mini VPN,bad,1,4.169,159.377,4.77
+Mini VPN,bad,2,4.208,156.098,4.724
+Mini VPN,bad,3,4.129,158.712,4.933
+WireGuard,good,1,780.33,0.604,0
+WireGuard,good,2,763.947,0.614,0
+WireGuard,good,3,759.596,0.602,0
+WireGuard,normal,1,18.86,50.984,1.095
+WireGuard,normal,2,18.613,52.647,1.102
+WireGuard,normal,3,18.441,51.458,1.059
+WireGuard,bad,1,4.336,155.489,5.401
+WireGuard,bad,2,4.534,151.698,5.063
+WireGuard,bad,3,4.501,158.901,5.313
+OpenVPN,good,1,290.919,1.132,0
+OpenVPN,good,2,290.32,1.14,0
+OpenVPN,good,3,289.052,1.08,0
+OpenVPN,normal,1,17.829,50.904,1.227
+OpenVPN,normal,2,17.641,54.637,1.223
+OpenVPN,normal,3,17.625,53.079,1.206
+OpenVPN,bad,1,3.877,150.46,5.148
+OpenVPN,bad,2,3.922,152.254,5.002
+OpenVPN,bad,3,3.895,154.213,4.938
+GRE,good,1,922.832,0.505,0
+GRE,good,2,916.92,0.481,0
+GRE,good,3,896.243,0.503,0
+GRE,normal,1,19.351,52.417,1.025
+GRE,normal,2,18.53,52.6,1.014
+GRE,normal,3,18.27,49.22,0.961
+GRE,bad,1,4.694,149.935,4.747
+GRE,bad,2,4.646,151.096,4.731
+GRE,bad,3,4.475,153.335,4.77
