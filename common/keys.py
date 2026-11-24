@@ -1,20 +1,17 @@
-"""Temporary key handling for Section 2 (a shared key file, no handshake yet)."""
+"""Turn the handshake result into the two AES keys (one per direction)."""
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 
-def load_psk(path="psk.key"):
-    # The pre-shared key is 32 random bytes stored in a file.
-    with open(path, "rb") as f:
-        psk = f.read()
-    if len(psk) != 32:
-        raise SystemExit("psk.key must be exactly 32 bytes")
-    return psk
+def derive_keys(shared_secret, transcript):
+    """Return (c2s_key, s2c_key).
 
-
-def derive_keys(psk):
-    """Return (c2s_key, s2c_key): one AES-256 key for each direction."""
+    shared_secret = the X25519 result both sides computed.
+    transcript    = every handshake byte sent so far; used as the HKDF salt, so if
+                    anyone changed a message, the two sides get different keys.
+    The labels "c2s" / "s2c" make the two directions use different keys.
+    """
     def one(label):
-        return HKDF(algorithm=hashes.SHA256(), length=32, salt=None,
-                    info=label).derive(psk)
+        return HKDF(algorithm=hashes.SHA256(), length=32, salt=transcript,
+                    info=label).derive(shared_secret)
     return one(b"c2s"), one(b"s2c")
