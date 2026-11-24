@@ -1,9 +1,11 @@
-"""VPN client (Section 5): runs inside a client namespace.
+"""VPN client (Section 6): runs inside a client namespace.
 Usage: client.py USERNAME [-p PASSWORD] [--ca FILE] [--split | --full]
 (asks for the password if -p is missing)
   no flag : only the tunnel network 10.8.0.0/24 goes through tun0
   --split : also 10.0.3.0/24 (the servers' network) goes through tun0
   --full  : everything goes through tun0
+Section 6: sends a keepalive after 25 s of silence; exits if the server is silent for 60 s;
+drops replayed packets from the server.
 First handshake + login (TCP 51821), then data over UDP 51820.
 Packets from tun0 -> encrypt -> UDP to server.  UDP from server -> decrypt -> tun0.
 """
@@ -16,12 +18,14 @@ import signal
 import socket
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
 from common.handshake import HandshakeError, client_finish, client_hello, recv_msg, send_msg
-from common.login import LoginError, client_login
-from common.packet import encode, decode, TYPE_DATA
+from common.login import DEAD_AFTER, KEEPALIVE_AFTER, LoginError, client_login
+from common.packet import encode, decode, TYPE_DATA, TYPE_KEEPALIVE
+from common.replay import ReplayWindow
 from common.tun import open_tun
 
 SERVER = ("10.0.3.2", 51820)         # UDP data
@@ -35,6 +39,7 @@ ap.add_argument("--ca", default="certs/ca.pub")      # the CA we trust
 mode = ap.add_mutually_exclusive_group()
 mode.add_argument("--split", action="store_true")
 mode.add_argument("--full", action="store_true")
+ap.add_argument("--replay-test", action="store_true", help=argparse.SUPPRESS)  # hidden demo flag
 args = ap.parse_args()
 password = args.password if args.password is not None else getpass.getpass("Password: ")
 
@@ -54,7 +59,7 @@ except (HandshakeError, LoginError, OSError) as e:
     sys.exit(f"FAILED, refusing to continue: {e}")
 print(f"login OK, server gave us {my_ip}")
 
-tun_fd, _ = open_tun("tun0", f"{my_ip}/24")
+tun_fd, _ = open_tun("tun0", f"{my_ip}/24", disable_ipv6=True)
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
 # Routes. Every route we add is remembered so we can remove it when we exit.
@@ -104,18 +109,44 @@ def remove_routes():
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
 atexit.register(remove_routes)
 
-while True:
-    ready, _, _ = select.select([tun_fd, sock], [], [])
-    if tun_fd in ready:
-        plain = os.read(tun_fd, 2000)
-        sock.sendto(encode(c2s_key, TYPE_DATA, 0, session_id, seq, plain), SERVER)
-        seq += 1
-    if sock in ready:
-        data, _ = sock.recvfrom(2000)
-        try:
-            _, _, sid, _, plain = decode(s2c_key, data)
-        except ValueError as e:
-            print("dropped:", e)
-        else:
-            if sid == session_id:
-                os.write(tun_fd, plain)
+window = ReplayWindow()               # replay protection for packets from the server
+last_sent = last_heard = time.monotonic()
+replay_pending = args.replay_test    # --replay-test: send the first data packet twice
+
+try:
+    while True:
+        ready, _, _ = select.select([tun_fd, sock], [], [], 1.0)
+        now = time.monotonic()
+        if tun_fd in ready:
+            plain = os.read(tun_fd, 2000)
+            packet = encode(c2s_key, TYPE_DATA, 0, session_id, seq, plain)
+            sock.sendto(packet, SERVER)
+            if replay_pending:            # the exact same bytes again: the server must drop this copy
+                sock.sendto(packet, SERVER)
+                replay_pending = False
+                print("replay test: sent one packet twice")
+            seq += 1
+            last_sent = now
+        if sock in ready:
+            data, _ = sock.recvfrom(2000)
+            try:
+                ptype, _, sid, rseq, plain = decode(s2c_key, data)
+            except ValueError as e:
+                print("dropped:", e)
+            else:
+                if sid == session_id:
+                    if not window.accept(rseq):
+                        print(f"replay dropped: seq {rseq} (total dropped {window.dropped})")
+                    else:
+                        last_heard = now
+                        if ptype == TYPE_DATA:
+                            os.write(tun_fd, plain)   # keepalive answers just prove the server is alive
+        if now - last_sent > KEEPALIVE_AFTER:         # quiet for a while: tell the server we are alive
+            sock.sendto(encode(c2s_key, TYPE_KEEPALIVE, 0, session_id, seq, b""), SERVER)
+            seq += 1
+            last_sent = now
+        if now - last_heard > DEAD_AFTER:
+            print(f"no answer from the server for {DEAD_AFTER}s, exiting")
+            sys.exit(0)                               # exiting normally runs remove_routes
+except KeyboardInterrupt:
+    print("\nclient stopped")

@@ -10,13 +10,16 @@ data packets will never reach, so the same key never sees the same nonce twice.
 import socket
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from common.handshake import recv_msg, send_msg
 from common.packet import TYPE_LOGIN, decode, encode
+from common.replay import ReplayWindow
 from common.users import check_password
 
 LOGIN_SEQ = 1 << 63
+KEEPALIVE_AFTER = 25      # client sends a keepalive after this many quiet seconds
+DEAD_AFTER = 60           # silence for this long = the other side is gone
 FAIL_DELAY = 1.0          # seconds we wait before saying "reject" (slows password guessing)
 
 
@@ -34,6 +37,8 @@ class Session:
     ip: str                # tunnel address, like 10.8.0.2
     addr: tuple = None     # UDP address the client sends from (learned from its first packet)
     seq: int = 0           # counts packets we send to this client
+    last_heard: float = field(default_factory=time.monotonic)   # when we last got a good packet
+    window: ReplayWindow = field(default_factory=ReplayWindow)  # replay protection for its packets
 
 
 class Sessions:
@@ -56,6 +61,16 @@ class Sessions:
                     self.by_id[session_id] = self.by_ip[ip] = s
                     return s
             return None
+
+    def expire(self, timeout=DEAD_AFTER, now=None):
+        """Remove sessions silent for `timeout` seconds; their address is free again. Returns them."""
+        now = time.monotonic() if now is None else now
+        with self.lock:
+            dead = [x for x in self.by_id.values() if now - x.last_heard > timeout]
+            for x in dead:
+                del self.by_id[x.session_id]
+                del self.by_ip[x.ip]
+        return dead
 
 
 def server_login(conn, c2s, s2c, session_id, users, sessions, delay=FAIL_DELAY):
