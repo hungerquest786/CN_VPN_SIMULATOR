@@ -1,10 +1,15 @@
-"""VPN server (Section 4): runs inside the serverA namespace.
+"""VPN server (Section 5): runs inside the serverA namespace.
 Each client: handshake + login over TCP 51821, then data over UDP 51820.
 Many clients at once. Each has its own session (session_id, keys, tunnel IP, UDP address).
 Packets from tun0 -> find the client by destination IP -> encrypt -> UDP.
 UDP from a client -> find the session by session_id -> decrypt -> tun0.
+Section 5: at start we turn on IP forwarding and NAT, so traffic from the tunnel network
+leaves serverA with serverA's own address (10.0.3.2). At exit we remove the NAT rule.
 """
+import atexit
 import os
+import signal
+import subprocess
 import select
 import socket
 import struct
@@ -30,6 +35,33 @@ with open("certs/server.key", "rb") as f:
 
 sessions = Sessions()
 
+NAT_TABLE = "minivpn_nat"   # our own nft table, so removing it cannot touch anything else
+
+
+def start_nat():
+    """Forward packets between tun0 and the real network, and hide 10.8.0.0/24 behind our address."""
+    with open("/proc/sys/net/ipv4/ip_forward", "w") as f:    # this namespace only (serverA)
+        f.write("1")
+    rules = f"""
+    table ip {NAT_TABLE} {{
+        chain postrouting {{
+            type nat hook postrouting priority 100;
+            ip saddr 10.8.0.0/24 oifname != "tun0" masquerade
+        }}
+    }}"""
+    subprocess.run(["nft", "-f", "-"], input=rules.encode(), check=True)
+    atexit.register(stop_nat)
+
+
+def stop_nat():
+    subprocess.run(["nft", "delete", "table", "ip", NAT_TABLE], check=False)
+    print("NAT rule removed")
+
+
+# Ctrl-C raises KeyboardInterrupt; a plain `kill` (SIGTERM) is turned into a normal exit,
+# so in both cases atexit runs and the rule is removed.
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
+
 
 def handle_client(conn, peer):
     """Runs in its own thread, so a slow or wrong-password client does not block the others."""
@@ -49,7 +81,9 @@ def handle_client(conn, peer):
         print(f"{peer[0]}: handshake failed: {e}")
 
 
+subprocess.run(["nft", "delete", "table", "ip", NAT_TABLE], capture_output=True)  # leftover from a crash
 tun_fd, _ = open_tun("tun0", "10.8.0.1/24")
+start_nat()
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(BIND)
 listener = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
